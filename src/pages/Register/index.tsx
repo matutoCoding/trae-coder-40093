@@ -56,6 +56,8 @@ function Register() {
   const rule = task ? getRuleById(task.ruleId) : undefined;
   const keyPoints = rule?.keyPoints || task?.keyPoints || [];
 
+  const callCountIncremented = useRef(false);
+
   const [callDuration, setCallDuration] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [result, setResult] = useState<CallResult | null>(null);
@@ -68,7 +70,10 @@ function Register() {
   const [appointmentTime, setAppointmentTime] = useState('');
 
   useEffect(() => {
-    if (task) incrementCallCount(task.id);
+    if (task && !callCountIncremented.current) {
+      incrementCallCount(task.id);
+      callCountIncremented.current = true;
+    }
   }, [task, incrementCallCount]);
 
   useEffect(() => {
@@ -324,8 +329,20 @@ function Register() {
                 <span className="text-slate-600">{pharmacist?.name} ({pharmacist?.title})</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
+                <ClipboardList className="w-4 h-4 text-medical-500" />
+                <span className="text-slate-700 font-medium truncate">{rule?.name || '未匹配规则'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
                 <Pill className="w-4 h-4 text-warn-500" />
                 <span className="text-slate-600 truncate">{patient.lastDrugName}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4 text-danger-500" />
+                <span className="text-slate-600">上次购药：{task?.lastPurchaseDate}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-600">本次第 {task?.callCount} 次拨打</span>
               </div>
             </div>
           </div>
@@ -336,6 +353,9 @@ function Register() {
               <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-medical-500" />
                 本次话术重点
+                <span className="text-sm font-normal text-slate-500 ml-1">
+                  · {rule?.name || '未匹配规则'}
+                </span>
               </h3>
               <div className="bg-gradient-to-r from-medical-50 to-trust-50/60 rounded-xl p-4 border border-medical-100 mb-4">
                 <p className="text-sm text-slate-700 leading-relaxed">{rule?.scriptTemplate}</p>

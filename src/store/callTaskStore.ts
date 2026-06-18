@@ -37,11 +37,13 @@ export function markTaskCounted(taskId: string): void {
   }
 }
 
-const priorities: Array<'high' | 'medium' | 'low'> = ['high', 'high', 'medium', 'medium', 'low'];
-const statuses: Array<'pending' | 'calling' | 'completed' | 'failed'> = [
-  'pending', 'pending', 'pending', 'pending', 'pending',
-  'calling', 'completed', 'completed', 'failed',
-];
+export function clearTaskCounted(taskId: string): void {
+  const set = getSessionCounted();
+  if (set.has(taskId)) {
+    set.delete(taskId);
+    setSessionCounted(set);
+  }
+}
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
 
@@ -80,22 +82,19 @@ export function computeMatchedTasks(): CallTask[] {
     const diffDays = today.diff(dayjs(patient.lastPurchaseDate), 'day');
     const isNewCustomer = patient.tags.includes('新客');
 
-    // 根据患者药品类别和触发天数精准匹配规则
     const matchedRules = rules.filter((r) => {
-      // 1. 药品类别必须匹配
       if (!r.drugCategories.some((c) => patient.lastDrugCategory === c)) return false;
-      // 2. 按触发类型和触发天数做窗口匹配
       switch (r.triggerType) {
         case 'days_after_purchase':
-          // 购药后第N天：允许N±2天的容差窗口
-          return diffDays >= Math.max(0, r.triggerValue - 2) && diffDays <= r.triggerValue + 2;
+          // 购药后第N天：±1天窗口（业务认可的那一天）
+          return diffDays >= Math.max(0, r.triggerValue - 1) && diffDays <= r.triggerValue + 1;
         case 'day_after_arrival':
-          // 冷链到货次日：触发天数附近±1天(0~触发值+1天内)
-          return diffDays >= 0 && diffDays <= r.triggerValue + 1;
+          // 冷链到货次日：0~触发值当天
+          return diffDays >= 0 && diffDays <= r.triggerValue;
         case 'days_after_first_purchase':
-          // 新客首服：需带「新客」标签 + 1~触发值+2天窗口
+          // 新客首服：需新客标签 + 1~触发值+1天窗口
           if (!isNewCustomer) return false;
-          return diffDays >= 1 && diffDays <= r.triggerValue + 2;
+          return diffDays >= 1 && diffDays <= r.triggerValue + 1;
         default:
           return false;
       }
@@ -105,7 +104,6 @@ export function computeMatchedTasks(): CallTask[] {
 
     rulesToApply.forEach((rule) => {
       const priority = rule.priority;
-      const status = statuses[(counter - 1) % statuses.length];
       tasks.push({
         id: `task-${counter.toString().padStart(3, '0')}`,
         patientId: patient.id,
@@ -114,12 +112,12 @@ export function computeMatchedTasks(): CallTask[] {
         pharmacistId: patient.pharmacistId,
         scheduledDate: today.format('YYYY-MM-DD'),
         priority,
-        status,
+        status: 'pending',
         keyPoints: rule.keyPoints,
         lastDrugName: patient.lastDrugName,
         lastDrugCategory: patient.lastDrugCategory,
         lastPurchaseDate: patient.lastPurchaseDate,
-        callCount: status === 'pending' ? 0 : Math.floor(Math.random() * 2) + 1,
+        callCount: 0,
       });
       counter++;
     });
@@ -166,10 +164,14 @@ export const useCallTaskStore = create<CallTaskState>((set, get) => ({
   },
 
   updateTaskStatus: (id, status) => {
+    const prev = get().callTasks.find((t) => t.id === id);
     const next = get().callTasks.map((t) =>
       t.id === id ? { ...t, status } : t
     );
     set({ callTasks: next });
+    if (status === 'pending' && prev?.status !== 'pending') {
+      clearTaskCounted(id);
+    }
     emitTaskChange(next);
   },
 
@@ -226,12 +228,12 @@ export const useCallTaskStore = create<CallTaskState>((set, get) => ({
           if (!r.drugCategories.some((c) => patient.lastDrugCategory === c)) return false;
           switch (r.triggerType) {
             case 'days_after_purchase':
-              return diffDays >= Math.max(0, r.triggerValue - 2) && diffDays <= r.triggerValue + 2;
+              return diffDays >= Math.max(0, r.triggerValue - 1) && diffDays <= r.triggerValue + 1;
             case 'day_after_arrival':
-              return diffDays >= 0 && diffDays <= r.triggerValue + 1;
+              return diffDays >= 0 && diffDays <= r.triggerValue;
             case 'days_after_first_purchase':
               if (!isNewCustomer) return false;
-              return diffDays >= 1 && diffDays <= r.triggerValue + 2;
+              return diffDays >= 1 && diffDays <= r.triggerValue + 1;
             default:
               return false;
           }

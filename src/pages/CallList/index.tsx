@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   PhoneCall, Search, Filter, Phone, User, Building2, Pill,
   Calendar, Clock, ChevronDown, X, History, ShoppingBag,
-  MessageSquare, Stethoscope, AlertTriangle, Sparkles,
+  MessageSquare, Stethoscope, AlertTriangle, Sparkles, ClipboardList,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';
@@ -84,6 +84,11 @@ function PatientDrawer({ task, onClose, onStartCall }: PatientDrawerProps) {
                 <div className="flex items-center gap-2 text-sm">
                   <Stethoscope className="w-4 h-4 text-trust-500" />
                   <span className="text-slate-600">{pharmacist?.name} ({pharmacist?.title})</span>
+                </div>
+                <div className="col-span-2 flex items-center gap-2 text-sm">
+                  <ClipboardList className="w-4 h-4 text-medical-500" />
+                  <span className="text-slate-500 shrink-0">回访规则：</span>
+                  <span className="text-slate-700 font-medium truncate">{rule?.name || '未匹配规则'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <ShoppingBag className="w-4 h-4 text-warn-500" />
@@ -300,6 +305,10 @@ function CallList() {
                     <span className="mx-1 text-slate-300">|</span>
                     <Stethoscope className="w-3.5 h-3.5 text-trust-500 shrink-0" />
                     <span>{pharmacist?.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-medical-400 shrink-0" />
+                    <span className="truncate text-slate-700 font-medium">{rule?.name || '未匹配规则'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <Pill className="w-3.5 h-3.5 text-warn-500 shrink-0" />
