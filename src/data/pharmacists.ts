@@ -1,0 +1,88 @@
+import type { Pharmacist } from '@/types';
+
+export const pharmacists: Pharmacist[] = [
+  {
+    id: 'pharm-001',
+    name: '周文博',
+    storeId: 'store-001',
+    title: '主管药师',
+    phone: '13800000001',
+  },
+  {
+    id: 'pharm-002',
+    name: '吴雅婷',
+    storeId: 'store-001',
+    title: '执业药师',
+    phone: '13800000002',
+  },
+  {
+    id: 'pharm-003',
+    name: '孙浩然',
+    storeId: 'store-002',
+    title: '主管药师',
+    phone: '13800000003',
+  },
+  {
+    id: 'pharm-004',
+    name: '郑美玲',
+    storeId: 'store-002',
+    title: '药师',
+    phone: '13800000004',
+  },
+  {
+    id: 'pharm-005',
+    name: '钱志强',
+    storeId: 'store-003',
+    title: '执业药师',
+    phone: '13800000005',
+  },
+  {
+    id: 'pharm-006',
+    name: '冯丽娟',
+    storeId: 'store-003',
+    title: '药师',
+    phone: '13800000006',
+  },
+  {
+    id: 'pharm-007',
+    name: '陈嘉怡',
+    storeId: 'store-004',
+    title: '主管药师',
+    phone: '13800000007',
+  },
+  {
+    id: 'pharm-008',
+    name: '褚伟明',
+    storeId: 'store-004',
+    title: '执业药师',
+    phone: '13800000008',
+  },
+  {
+    id: 'pharm-009',
+    name: '卫思远',
+    storeId: 'store-005',
+    title: '药师',
+    phone: '13800000009',
+  },
+  {
+    id: 'pharm-010',
+    name: '蒋雪梅',
+    storeId: 'store-005',
+    title: '执业药师',
+    phone: '13800000010',
+  },
+  {
+    id: 'pharm-011',
+    name: '沈鹏飞',
+    storeId: 'store-006',
+    title: '主管药师',
+    phone: '13800000011',
+  },
+  {
+    id: 'pharm-012',
+    name: '韩雨欣',
+    storeId: 'store-006',
+    title: '药师',
+    phone: '13800000012',
+  },
+];
