@@ -7,10 +7,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';
 import { useCallTaskStore } from '@/store/callTaskStore';
+import { useRulesStore } from '@/store/rulesStore';
 import { patients } from '@/data/patients';
 import { pharmacists } from '@/data/pharmacists';
 import { stores } from '@/data/stores';
-import { rules as allRules } from '@/data/rules';
 import { PriorityBadge, PriorityBar, TaskStatusBadge, MemberLevelBadge } from '@/components/Badges';
 import type { CallTask, DrugCategory, Priority, CallTaskStatus } from '@/types';
 import { fromNow, dayjs } from '@/utils/date';
@@ -30,7 +30,8 @@ function PatientDrawer({ task, onClose, onStartCall }: PatientDrawerProps) {
   const patient = patients.find(p => p.id === task.patientId);
   const pharmacist = pharmacists.find(p => p.id === task.pharmacistId);
   const store = stores.find(s => s.id === task.storeId);
-  const rule = allRules.find(r => r.id === task.ruleId);
+  const rule = useRulesStore((s) => s.getRuleById)(task.ruleId);
+  const keyPoints = rule?.keyPoints || task.keyPoints;
   if (!patient) return null;
 
   return (
@@ -105,7 +106,7 @@ function PatientDrawer({ task, onClose, onStartCall }: PatientDrawerProps) {
               <p className="text-sm text-slate-700 leading-relaxed">{rule?.scriptTemplate}</p>
             </div>
             <ul className="space-y-2">
-              {task.keyPoints.map((kp, i) => (
+              {keyPoints.map((kp, i) => (
                 <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/60 border border-slate-100">
                   <span className="w-6 h-6 rounded-full bg-medical-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
                     {i + 1}
@@ -172,6 +173,7 @@ function PatientDrawer({ task, onClose, onStartCall }: PatientDrawerProps) {
 function CallList() {
   const navigate = useNavigate();
   const { callTasks, getPendingTasksSorted, updateTaskStatus } = useCallTaskStore();
+  const getRuleById = useRulesStore((s) => s.getRuleById);
   const [search, setSearch] = useState('');
   const [storeFilter, setStoreFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<DrugCategory | 'all'>('all');
@@ -254,6 +256,8 @@ function CallList() {
           const patient = patients.find(p => p.id === task.patientId);
           const pharmacist = pharmacists.find(p => p.id === task.pharmacistId);
           const store = stores.find(s => s.id === task.storeId);
+          const rule = getRuleById(task.ruleId);
+          const keyPoints = rule?.keyPoints || task.keyPoints;
           if (!patient) return null;
           const daysAgo = dayjs().diff(task.lastPurchaseDate, 'day');
 
@@ -314,14 +318,14 @@ function CallList() {
                     话术重点
                   </div>
                   <ul className="space-y-0.5">
-                    {task.keyPoints.slice(0, 2).map((kp, i) => (
+                    {keyPoints.slice(0, 2).map((kp, i) => (
                       <li key={i} className="text-xs text-slate-600 flex items-start gap-1.5">
                         <span className="text-medical-500 mt-0.5">•</span>
                         <span className="line-clamp-1">{kp}</span>
                       </li>
                     ))}
-                    {task.keyPoints.length > 2 && (
-                      <li className="text-xs text-slate-400">另有{task.keyPoints.length - 2}项重点...</li>
+                    {keyPoints.length > 2 && (
+                      <li className="text-xs text-slate-400">另有{keyPoints.length - 2}项重点...</li>
                     )}
                   </ul>
                 </div>

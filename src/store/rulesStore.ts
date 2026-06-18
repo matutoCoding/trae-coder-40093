@@ -1,14 +1,19 @@
 import { create } from 'zustand';
 import type { Rule, DrugCategory, TriggerType, Priority } from '@/types';
 import { rules as initialRules } from '@/data/rules';
-import { useCallTaskStore } from './callTaskStore';
-import { useDashboardStore } from './dashboardStore';
 
-function notifyChanges() {
-  setTimeout(() => {
-    useCallTaskStore.getState().regenerateTasksFromRules();
-    useDashboardStore.getState().refreshStats();
-  }, 0);
+type RulesChangedCallback = (rules: Rule[]) => void;
+const listeners = new Set<RulesChangedCallback>();
+
+function emitChange(rules: Rule[]) {
+  listeners.forEach((fn) => {
+    try { fn(rules); } catch (e) { console.warn('[rulesStore listener error]', e); }
+  });
+}
+
+export function subscribeRulesChanges(fn: RulesChangedCallback) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
 }
 
 interface RulesState {
@@ -31,40 +36,36 @@ export const useRulesStore = create<RulesState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
     };
-    set((state) => ({ rules: [newRule, ...state.rules] }));
-    notifyChanges();
+    const next = [newRule, ...get().rules];
+    set({ rules: next });
+    emitChange(next);
   },
 
   updateRule: (id, updates) => {
-    set((state) => ({
-      rules: state.rules.map((r) =>
-        r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
-      ),
-    }));
-    notifyChanges();
+    const next = get().rules.map((r) =>
+      r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
+    );
+    set({ rules: next });
+    emitChange(next);
   },
 
   deleteRule: (id) => {
-    set((state) => ({
-      rules: state.rules.filter((r) => r.id !== id),
-    }));
-    notifyChanges();
+    const next = get().rules.filter((r) => r.id !== id);
+    set({ rules: next });
+    emitChange(next);
   },
 
   toggleRule: (id) => {
-    set((state) => ({
-      rules: state.rules.map((r) =>
-        r.id === id
-          ? { ...r, enabled: !r.enabled, updatedAt: new Date().toISOString() }
-          : r
-      ),
-    }));
-    notifyChanges();
+    const next = get().rules.map((r) =>
+      r.id === id
+        ? { ...r, enabled: !r.enabled, updatedAt: new Date().toISOString() }
+        : r
+    );
+    set({ rules: next });
+    emitChange(next);
   },
 
-  getRuleById: (id) => {
-    return get().rules.find((r) => r.id === id);
-  },
+  getRuleById: (id) => get().rules.find((r) => r.id === id),
 }));
 
 export { DrugCategory, TriggerType, Priority };

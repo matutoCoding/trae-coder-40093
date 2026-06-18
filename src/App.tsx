@@ -6,8 +6,10 @@ import CallList from '@/pages/CallList';
 import Register from '@/pages/Register';
 import Pharmacist from '@/pages/Pharmacist';
 import Tasks from '@/pages/Tasks';
+import { useStoreLinker } from '@/store/useStoreLinker';
 
 export default function App() {
+  useStoreLinker();
   return (
     <Router>
       <Layout>

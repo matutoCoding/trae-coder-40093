@@ -9,10 +9,10 @@ import {
 import { useCallTaskStore } from '@/store/callTaskStore';
 import { useCallRecordStore } from '@/store/callRecordStore';
 import { usePharmacistTaskStore } from '@/store/pharmacistTaskStore';
+import { useRulesStore } from '@/store/rulesStore';
 import { patients } from '@/data/patients';
 import { pharmacists } from '@/data/pharmacists';
 import { stores } from '@/data/stores';
-import { rules as allRules } from '@/data/rules';
 import { PriorityBadge, PriorityBar, CallResultBadge } from '@/components/Badges';
 import PageHeader from '@/components/PageHeader';
 import type { CallResult } from '@/types';
@@ -52,9 +52,9 @@ function Register() {
   const patient = patients.find(p => p.id === task?.patientId);
   const pharmacist = pharmacists.find(p => p.id === task?.pharmacistId);
   const store = stores.find(s => s.id === task?.storeId);
-  const rule = allRules.find(r => r.id === task?.ruleId);
-
-  const callCountIncremented = useRef(false);
+  const getRuleById = useRulesStore((s) => s.getRuleById);
+  const rule = task ? getRuleById(task.ruleId) : undefined;
+  const keyPoints = rule?.keyPoints || task?.keyPoints || [];
 
   const [callDuration, setCallDuration] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
@@ -68,10 +68,7 @@ function Register() {
   const [appointmentTime, setAppointmentTime] = useState('');
 
   useEffect(() => {
-    if (task && !callCountIncremented.current) {
-      incrementCallCount(task.id);
-      callCountIncremented.current = true;
-    }
+    if (task) incrementCallCount(task.id);
   }, [task, incrementCallCount]);
 
   useEffect(() => {
@@ -156,7 +153,7 @@ function Register() {
               <div className="space-y-3">
                 {pendingTasks.map((t) => {
                   const p = patients.find((x) => x.id === t.patientId);
-                  const r = allRules.find((x) => x.id === t.ruleId);
+                  const r = getRuleById(t.ruleId);
                   if (!p) return null;
                   return (
                     <div
@@ -344,7 +341,7 @@ function Register() {
                 <p className="text-sm text-slate-700 leading-relaxed">{rule?.scriptTemplate}</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {task?.keyPoints.map((kp, i) => (
+                {keyPoints.map((kp, i) => (
                   <label key={i} className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-medical-50/50 transition-colors">
                     <input type="checkbox" className="mt-1 accent-medical-500" />
                     <span className="text-sm text-slate-700 flex-1">{kp}</span>
