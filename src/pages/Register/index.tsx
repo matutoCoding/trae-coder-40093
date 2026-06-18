@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, ArrowLeft, Phone, User, Building2, Pill, Calendar,
   CheckCircle2, XCircle, AlertTriangle, AlertOctagon, Ban,
   Clock, CheckCheck, MessageSquare, Send, Sparkles, ChevronRight,
-  Play, Pause, Volume2, Stethoscope, History,
+  Play, Pause, Volume2, Stethoscope, History, ListTodo, ArrowRight,
 } from 'lucide-react';
 import { useCallTaskStore } from '@/store/callTaskStore';
 import { useCallRecordStore } from '@/store/callRecordStore';
@@ -17,6 +17,7 @@ import { PriorityBadge, PriorityBar, CallResultBadge } from '@/components/Badges
 import PageHeader from '@/components/PageHeader';
 import type { CallResult } from '@/types';
 import { CALL_RESULT_LABELS } from '@/types';
+import { useDashboardStore } from '@/store/dashboardStore';
 
 const RESULT_OPTIONS: { value: CallResult; icon: any; label: string; desc: string; color: string; bgClass: string }[] = [
   { value: 'connected', icon: CheckCircle2, label: '已接通', desc: '正常完成回访', color: 'text-trust-600', bgClass: 'peer-checked:border-trust-500 peer-checked:bg-trust-50' },
@@ -45,12 +46,15 @@ function Register() {
   const { getTaskById, updateTaskStatus, incrementCallCount } = useCallTaskStore();
   const { addCallRecord } = useCallRecordStore();
   const { addPharmacistTask } = usePharmacistTaskStore();
+  const { refreshStats } = useDashboardStore();
 
   const task = getTaskById(id);
   const patient = patients.find(p => p.id === task?.patientId);
   const pharmacist = pharmacists.find(p => p.id === task?.pharmacistId);
   const store = stores.find(s => s.id === task?.storeId);
   const rule = allRules.find(r => r.id === task?.ruleId);
+
+  const callCountIncremented = useRef(false);
 
   const [callDuration, setCallDuration] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
@@ -64,7 +68,10 @@ function Register() {
   const [appointmentTime, setAppointmentTime] = useState('');
 
   useEffect(() => {
-    if (task) incrementCallCount(task.id);
+    if (task && !callCountIncremented.current) {
+      incrementCallCount(task.id);
+      callCountIncremented.current = true;
+    }
   }, [task, incrementCallCount]);
 
   useEffect(() => {
@@ -75,17 +82,128 @@ function Register() {
     return () => clearInterval(timer);
   }, [isTimerRunning]);
 
+  const pendingTasks = useCallTaskStore((s) => s.getPendingTasksSorted()).slice(0, 5);
+
   if (!task || !patient) {
     return (
       <div>
-        <PageHeader title="回访登记" subtitle="未找到对应的回访任务" back icon={<ClipboardList className="w-6 h-6 text-white" />} />
-        <div className="card p-16 text-center">
-          <AlertTriangle className="w-16 h-16 mx-auto text-warn-500 mb-4" />
-          <p className="text-slate-500 mb-4">未找到该回访任务，请从待拨名单进入</p>
-          <button className="btn-primary" onClick={() => navigate('/call-list')}>
-            <ArrowLeft className="w-4 h-4" />
-            返回待拨名单
-          </button>
+        <PageHeader
+          title="回访登记"
+          subtitle="完成回访后记录结果并流转"
+          icon={<ClipboardList className="w-6 h-6 text-white" />}
+        />
+
+        <div className="max-w-4xl mx-auto">
+          <div className="card p-10 mb-8 bg-gradient-to-br from-medical-50 to-trust-50 border-medical-200 relative overflow-hidden">
+            <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-medical-100/40" />
+            <div className="absolute -right-32 top-24 w-48 h-48 rounded-full bg-trust-100/40" />
+            <div className="relative flex gap-8 items-start">
+              <div className="flex-shrink-0 w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center">
+                <ListTodo className="w-10 h-10 text-medical-600" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-slate-800 mb-3">请先从待拨名单选择回访任务</h2>
+                <p className="text-slate-600 mb-6 leading-relaxed">
+                  回访登记需要关联具体的患者和回访任务。系统已为您生成好今日待拨名单，
+                  每位患者都根据就诊规则匹配了专属的话术重点，请从待拨名单开始拨打电话。
+                </p>
+
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                    <div className="w-10 h-10 rounded-lg bg-medical-100 flex items-center justify-center mb-3">
+                      <span className="text-lg font-bold text-medical-600">1</span>
+                    </div>
+                    <h3 className="font-semibold text-slate-800 mb-1">进入待拨名单</h3>
+                    <p className="text-sm text-slate-500">查看今日回访任务和话术</p>
+                  </div>
+                  <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                    <div className="w-10 h-10 rounded-lg bg-warn-100 flex items-center justify-center mb-3">
+                      <span className="text-lg font-bold text-warn-600">2</span>
+                    </div>
+                    <h3 className="font-semibold text-slate-800 mb-1">选择任务拨打电话</h3>
+                    <p className="text-sm text-slate-500">点击开始回访进入通话</p>
+                  </div>
+                  <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                    <div className="w-10 h-10 rounded-lg bg-trust-100 flex items-center justify-center mb-3">
+                      <span className="text-lg font-bold text-trust-600">3</span>
+                    </div>
+                    <h3 className="font-semibold text-slate-800 mb-1">完成登记提交</h3>
+                    <p className="text-sm text-slate-500">记录结果并流转药师</p>
+                  </div>
+                </div>
+
+                <button
+                  className="btn-primary text-base px-7 py-3.5 shadow-lg shadow-medical-200"
+                  onClick={() => navigate('/call-list')}
+                >
+                  <ListTodo className="w-5 h-5" />
+                  前往待拨名单开始回访
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {pendingTasks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-warn-500" />
+                  今日高优先级待拨（前{Math.min(5, pendingTasks.length)}名）
+                </h3>
+                <span className="text-sm text-slate-500">点击直接开始回访</span>
+              </div>
+              <div className="space-y-3">
+                {pendingTasks.map((t) => {
+                  const p = patients.find((x) => x.id === t.patientId);
+                  const r = allRules.find((x) => x.id === t.ruleId);
+                  if (!p) return null;
+                  return (
+                    <div
+                      key={t.id}
+                      className="card flex items-center gap-4 p-4 cursor-pointer hover:border-medical-400 hover:shadow-md transition-all group"
+                      onClick={() => navigate(`/register/${t.id}`)}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-medical-100 flex items-center justify-center text-medical-700 font-semibold">
+                          {p.name.slice(0, 1)}
+                        </div>
+                        <PriorityBar priority={t.priority} className="absolute -left-1 top-2 h-8" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-slate-800">{p.name}</span>
+                          <span className="text-sm text-slate-500">
+                            {p.gender} · {p.age}岁
+                          </span>
+                          <PriorityBadge priority={t.priority} />
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Pill className="w-3.5 h-3.5" />
+                            {t.lastDrugName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            上次购药 {t.lastPurchaseDate}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0 mr-2">
+                        <div className="text-sm text-slate-600 mb-0.5">{r?.name || '规则'}</div>
+                        <div className="text-xs text-slate-400">
+                          话术重点 {t.keyPoints.length} 条
+                        </div>
+                      </div>
+                      <div className="w-10 h-10 rounded-lg bg-medical-50 group-hover:bg-medical-500 text-medical-600 group-hover:text-white flex items-center justify-center transition-colors">
+                        <Phone className="w-4.5 h-4.5" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -131,6 +249,7 @@ function Register() {
     }
 
     updateTaskStatus(task.id, result === 'no_answer' && task.callCount < 2 ? 'pending' : 'completed');
+    refreshStats();
     navigate('/call-list');
   };
 

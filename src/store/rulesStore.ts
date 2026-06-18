@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import type { Rule, DrugCategory, TriggerType, Priority } from '@/types';
 import { rules as initialRules } from '@/data/rules';
+import { useCallTaskStore } from './callTaskStore';
+import { useDashboardStore } from './dashboardStore';
+
+function notifyChanges() {
+  setTimeout(() => {
+    useCallTaskStore.getState().regenerateTasksFromRules();
+    useDashboardStore.getState().refreshStats();
+  }, 0);
+}
 
 interface RulesState {
   rules: Rule[];
@@ -23,6 +32,7 @@ export const useRulesStore = create<RulesState>((set, get) => ({
       updatedAt: now,
     };
     set((state) => ({ rules: [newRule, ...state.rules] }));
+    notifyChanges();
   },
 
   updateRule: (id, updates) => {
@@ -31,12 +41,14 @@ export const useRulesStore = create<RulesState>((set, get) => ({
         r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
       ),
     }));
+    notifyChanges();
   },
 
   deleteRule: (id) => {
     set((state) => ({
       rules: state.rules.filter((r) => r.id !== id),
     }));
+    notifyChanges();
   },
 
   toggleRule: (id) => {
@@ -47,6 +59,7 @@ export const useRulesStore = create<RulesState>((set, get) => ({
           : r
       ),
     }));
+    notifyChanges();
   },
 
   getRuleById: (id) => {

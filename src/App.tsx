@@ -15,7 +15,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/rules" element={<Rules />} />
           <Route path="/call-list" element={<CallList />} />
-          <Route path="/register" element={<CallList />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/register/:id" element={<Register />} />
           <Route path="/pharmacist" element={<Pharmacist />} />
           <Route path="/tasks" element={<Tasks />} />

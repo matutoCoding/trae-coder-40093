@@ -16,13 +16,13 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
-export function PriorityBar({ priority }: { priority: Priority }) {
-  const className = {
+export function PriorityBar({ priority, className = '' }: { priority: Priority; className?: string }) {
+  const barClass = {
     high: 'priority-bar-high',
     medium: 'priority-bar-medium',
     low: 'priority-bar-low',
   }[priority];
-  return <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${className}`}></div>;
+  return <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${barClass} ${className}`}></div>;
 }
 
 export function TaskStatusBadge({ status }: { status: CallTaskStatus }) {
