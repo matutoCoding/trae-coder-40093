@@ -3,6 +3,7 @@ import {
   PhoneCall, Search, Filter, Phone, User, Building2, Pill,
   Calendar, Clock, ChevronDown, X, History, ShoppingBag,
   MessageSquare, Stethoscope, AlertTriangle, Sparkles, ClipboardList,
+  Info, Target,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';
@@ -13,6 +14,7 @@ import { pharmacists } from '@/data/pharmacists';
 import { stores } from '@/data/stores';
 import { PriorityBadge, PriorityBar, TaskStatusBadge, MemberLevelBadge } from '@/components/Badges';
 import type { CallTask, DrugCategory, Priority, CallTaskStatus } from '@/types';
+import { TRIGGER_TOLERANCE_LABELS } from '@/types';
 import { fromNow, dayjs } from '@/utils/date';
 
 const DRUG_CATEGORIES: DrugCategory[] = [
@@ -185,6 +187,7 @@ function CallList() {
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<CallTaskStatus | 'all'>('all');
   const [selectedTask, setSelectedTask] = useState<CallTask | null>(null);
+  const [showMatchInfo, setShowMatchInfo] = useState(false);
 
   const tasks = useMemo(() => {
     const list = statusFilter === 'all' ? getPendingTasksSorted() : callTasks.filter(t => t.status === statusFilter);
@@ -252,6 +255,13 @@ function CallList() {
                 <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             ))}
+            <button
+              className="btn-primary text-sm py-1.5 px-4 ml-auto"
+              onClick={() => setShowMatchInfo(true)}
+            >
+              <Info className="w-3.5 h-3.5" />
+              生成说明
+            </button>
           </div>
         </div>
       </div>
@@ -341,10 +351,11 @@ function CallList() {
 
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                   <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
+                    <span className={`flex items-center gap-1 ${task.callCount > 0 ? 'text-warn-600 font-medium' : ''}`}>
                       <Clock className="w-3 h-3" />
                       第{task.callCount + 1}次拨打
                     </span>
+                    {task.status !== 'pending' && <TaskStatusBadge status={task.status} />}
                   </div>
                   <button
                     className="btn-primary !py-1.5 !px-3 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
@@ -377,6 +388,81 @@ function CallList() {
           onClose={() => setSelectedTask(null)}
           onStartCall={() => startCall(selectedTask)}
         />
+      )}
+
+      {showMatchInfo && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowMatchInfo(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Target className="w-5 h-5 text-medical-500" />
+                今日名单生成说明
+              </h3>
+              <button onClick={() => setShowMatchInfo(false)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-80px)]">
+              <div className="mb-4 p-4 rounded-xl bg-medical-50/60 border border-medical-100">
+                <p className="text-sm text-slate-600">
+                  以下列表说明今日待拨名单中每条任务的匹配来源：由哪条规则触发、患者购药距今天数、匹配口径范围、药品类别。
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">患者</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">门店</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">规则名称</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">触发方式</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">匹配口径</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">药品类别</th>
+                      <th className="text-left py-3 px-3 text-slate-600 font-semibold">上次购药</th>
+                      <th className="text-right py-3 px-3 text-slate-600 font-semibold">天数差</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasks.map((t) => {
+                      const p = patients.find((x) => x.id === t.patientId);
+                      const s = stores.find((x) => x.id === t.storeId);
+                      const mr = t.matchReason;
+                      return (
+                        <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 font-medium text-slate-800">{p?.name || '-'}</td>
+                          <td className="py-2.5 px-3 text-slate-600">{s?.name || '-'}</td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-medical-700 font-medium">{mr.ruleName}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            {mr.triggerType === 'days_after_purchase' ? '购药后' : mr.triggerType === 'day_after_arrival' ? '到货后' : '首购后'}第{mr.triggerValue}天
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-medical-50 text-medical-700 border border-medical-100">
+                              {TRIGGER_TOLERANCE_LABELS[mr.triggerTolerance]}
+                            </span>
+                            <span className="text-xs text-slate-400 ml-1">
+                              {mr.triggerTolerance === 0 ? `仅第${mr.triggerValue}天` : `第${Math.max(1, mr.triggerValue - mr.triggerTolerance)}~${mr.triggerValue + mr.triggerTolerance}天`}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="tag py-0 text-[10px]">{mr.drugCategory}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">{mr.patientLastPurchaseDate}</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span className={`font-mono font-bold ${mr.daysDiff === mr.triggerValue ? 'text-trust-600' : 'text-warn-600'}`}>
+                              {mr.daysDiff}天
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

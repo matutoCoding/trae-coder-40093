@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { CallTask, CallTaskStatus, Priority, DrugCategory } from '@/types';
+import type { CallTask, CallTaskStatus, Priority, DrugCategory, MatchReason, TriggerTolerance } from '@/types';
 import { patients } from '@/data/patients';
+import { stores } from '@/data/stores';
 import dayjs from 'dayjs';
 import { useRulesStore } from './rulesStore';
 
@@ -72,6 +73,71 @@ function safeGetEnabledRules() {
   }
 }
 
+export function matchRule(rule: {
+  drugCategories: DrugCategory[];
+  triggerType: string;
+  triggerValue: number;
+  triggerTolerance: TriggerTolerance;
+}, patient: {
+  lastDrugCategory: DrugCategory;
+  lastPurchaseDate: string;
+  tags: string[];
+}, diffDays: number): boolean {
+  if (!rule.drugCategories.some((c) => patient.lastDrugCategory === c)) return false;
+  const tol = rule.triggerTolerance;
+  switch (rule.triggerType) {
+    case 'days_after_purchase':
+      return diffDays >= Math.max(0, rule.triggerValue - tol) && diffDays <= rule.triggerValue + tol;
+    case 'day_after_arrival':
+      return diffDays >= 0 && diffDays <= rule.triggerValue + tol;
+    case 'days_after_first_purchase':
+      if (!patient.tags.includes('新客')) return false;
+      return diffDays >= 1 && diffDays <= rule.triggerValue + tol;
+    default:
+      return false;
+  }
+}
+
+export interface SimulateResult {
+  totalPatients: number;
+  totalTasks: number;
+  storeBreakdown: { storeId: string; storeName: string; count: number }[];
+  patients: { id: string; name: string; storeId: string; drugCategory: DrugCategory; lastPurchaseDate: string; daysDiff: number }[];
+}
+
+export function simulateRule(rule: {
+  drugCategories: DrugCategory[];
+  triggerType: string;
+  triggerValue: number;
+  triggerTolerance: TriggerTolerance;
+}): SimulateResult {
+  const today = dayjs();
+  const matched: SimulateResult['patients'] = [];
+  const storeMap: Record<string, number> = {};
+
+  patients.forEach((p) => {
+    const diff = today.diff(dayjs(p.lastPurchaseDate), 'day');
+    if (matchRule(rule, p, diff)) {
+      matched.push({
+        id: p.id, name: p.name, storeId: p.storeId,
+        drugCategory: p.lastDrugCategory,
+        lastPurchaseDate: p.lastPurchaseDate, daysDiff: diff,
+      });
+      storeMap[p.storeId] = (storeMap[p.storeId] || 0) + 1;
+    }
+  });
+
+  return {
+    totalPatients: matched.length,
+    totalTasks: matched.length,
+    storeBreakdown: Object.entries(storeMap).map(([storeId, count]) => {
+      const s = stores.find((x) => x.id === storeId);
+      return { storeId, storeName: s?.name || storeId, count };
+    }),
+    patients: matched,
+  };
+}
+
 export function computeMatchedTasks(): CallTask[] {
   const rules = safeGetEnabledRules();
   const today = dayjs();
@@ -80,30 +146,20 @@ export function computeMatchedTasks(): CallTask[] {
 
   patients.forEach((patient) => {
     const diffDays = today.diff(dayjs(patient.lastPurchaseDate), 'day');
-    const isNewCustomer = patient.tags.includes('新客');
 
-    const matchedRules = rules.filter((r) => {
-      if (!r.drugCategories.some((c) => patient.lastDrugCategory === c)) return false;
-      switch (r.triggerType) {
-        case 'days_after_purchase':
-          // 购药后第N天：±1天窗口（业务认可的那一天）
-          return diffDays >= Math.max(0, r.triggerValue - 1) && diffDays <= r.triggerValue + 1;
-        case 'day_after_arrival':
-          // 冷链到货次日：0~触发值当天
-          return diffDays >= 0 && diffDays <= r.triggerValue;
-        case 'days_after_first_purchase':
-          // 新客首服：需新客标签 + 1~触发值+1天窗口
-          if (!isNewCustomer) return false;
-          return diffDays >= 1 && diffDays <= r.triggerValue + 1;
-        default:
-          return false;
-      }
-    });
+    const matchedRules = rules.filter((r) => matchRule(r, patient, diffDays));
 
-    const rulesToApply = matchedRules;
-
-    rulesToApply.forEach((rule) => {
-      const priority = rule.priority;
+    matchedRules.forEach((rule) => {
+      const matchReason: MatchReason = {
+        ruleId: rule.id,
+        ruleName: rule.name,
+        triggerType: rule.triggerType,
+        triggerValue: rule.triggerValue,
+        triggerTolerance: rule.triggerTolerance,
+        drugCategory: patient.lastDrugCategory,
+        patientLastPurchaseDate: patient.lastPurchaseDate,
+        daysDiff: diffDays,
+      };
       tasks.push({
         id: `task-${counter.toString().padStart(3, '0')}`,
         patientId: patient.id,
@@ -111,13 +167,14 @@ export function computeMatchedTasks(): CallTask[] {
         storeId: patient.storeId,
         pharmacistId: patient.pharmacistId,
         scheduledDate: today.format('YYYY-MM-DD'),
-        priority,
+        priority: rule.priority,
         status: 'pending',
         keyPoints: rule.keyPoints,
         lastDrugName: patient.lastDrugName,
         lastDrugCategory: patient.lastDrugCategory,
         lastPurchaseDate: patient.lastPurchaseDate,
         callCount: 0,
+        matchReason,
       });
       counter++;
     });
@@ -222,34 +279,29 @@ export const useCallTaskStore = create<CallTaskState>((set, get) => ({
 
       patients.forEach((patient) => {
         const diffDays = today.diff(dayjs(patient.lastPurchaseDate), 'day');
-        const isNewCustomer = patient.tags.includes('新客');
 
-        const matchedRules = rules.filter((r) => {
-          if (!r.drugCategories.some((c) => patient.lastDrugCategory === c)) return false;
-          switch (r.triggerType) {
-            case 'days_after_purchase':
-              return diffDays >= Math.max(0, r.triggerValue - 1) && diffDays <= r.triggerValue + 1;
-            case 'day_after_arrival':
-              return diffDays >= 0 && diffDays <= r.triggerValue;
-            case 'days_after_first_purchase':
-              if (!isNewCustomer) return false;
-              return diffDays >= 1 && diffDays <= r.triggerValue + 1;
-            default:
-              return false;
-          }
-        });
-        const rulesToApply = matchedRules;
+        const matchedRules = rules.filter((r) => matchRule(r, patient, diffDays));
 
-        rulesToApply.forEach((rule) => {
+        matchedRules.forEach((rule) => {
           const cacheKey = `${patient.id}-${rule.id}`;
           const existing = existingCompleted.get(cacheKey);
+          const matchReason: MatchReason = {
+            ruleId: rule.id,
+            ruleName: rule.name,
+            triggerType: rule.triggerType,
+            triggerValue: rule.triggerValue,
+            triggerTolerance: rule.triggerTolerance,
+            drugCategory: patient.lastDrugCategory,
+            patientLastPurchaseDate: patient.lastPurchaseDate,
+            daysDiff: diffDays,
+          };
           if (existing) {
             tasks.push({
               ...existing,
               keyPoints: rule.keyPoints,
+              matchReason,
             });
           } else {
-            const priority = rule.priority;
             tasks.push({
               id: `task-${counter.toString().padStart(3, '0')}`,
               patientId: patient.id,
@@ -257,13 +309,14 @@ export const useCallTaskStore = create<CallTaskState>((set, get) => ({
               storeId: patient.storeId,
               pharmacistId: patient.pharmacistId,
               scheduledDate: todayStr,
-              priority,
+              priority: rule.priority,
               status: 'pending',
               keyPoints: rule.keyPoints,
               lastDrugName: patient.lastDrugName,
               lastDrugCategory: patient.lastDrugCategory,
               lastPurchaseDate: patient.lastPurchaseDate,
               callCount: 0,
+              matchReason,
             });
           }
           counter++;

@@ -159,6 +159,10 @@ function Tasks() {
                             <Clock className="w-3 h-3" />
                             {pharmacist?.name}药师
                           </span>
+                          <span className={`flex items-center gap-1 ${task.callCount > 0 ? 'text-warn-600 font-medium' : ''}`}>
+                            <PhoneIncoming className="w-3 h-3" />
+                            第{task.callCount + 1}次拨打
+                          </span>
                         </div>
                       </div>
                     </div>

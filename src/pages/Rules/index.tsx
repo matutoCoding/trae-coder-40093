@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { FileText, Plus, Pencil, Trash2, Search, X, Check, ChevronDown, GripVertical, Sparkles } from 'lucide-react';
+import { FileText, Plus, Pencil, Trash2, Search, X, Check, ChevronDown, GripVertical, Sparkles, Eye, BarChart3, Users } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { useRulesStore } from '@/store/rulesStore';
 import { PriorityBadge, RuleEnabledBadge, SwitchToggle } from '@/components/Badges';
-import type { Rule, DrugCategory, TriggerType, Priority } from '@/types';
+import type { Rule, DrugCategory, TriggerType, Priority, TriggerTolerance } from '@/types';
+import { TRIGGER_TOLERANCE_LABELS } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { simulateRule } from '@/store/callTaskStore';
 import dayjs from 'dayjs';
 
 const DRUG_CATEGORIES: DrugCategory[] = [
@@ -28,10 +30,12 @@ function RuleForm({ initial, onSave, onClose }: RuleFormProps) {
   const [drugCategories, setDrugCategories] = useState<DrugCategory[]>(initial?.drugCategories || []);
   const [triggerType, setTriggerType] = useState<TriggerType>(initial?.triggerType || 'days_after_purchase');
   const [triggerValue, setTriggerValue] = useState(initial?.triggerValue || 25);
+  const [triggerTolerance, setTriggerTolerance] = useState<TriggerTolerance>(initial?.triggerTolerance ?? 0);
   const [priority, setPriority] = useState<Priority>(initial?.priority || 'medium');
   const [scriptTemplate, setScriptTemplate] = useState(initial?.scriptTemplate || '');
   const [keyPointsInput, setKeyPointsInput] = useState((initial?.keyPoints || []).join('\n'));
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
+  const [simResult, setSimResult] = useState<ReturnType<typeof simulateRule> | null>(null);
 
   const toggleCategory = (cat: DrugCategory) => {
     setDrugCategories((prev) =>
@@ -46,6 +50,7 @@ function RuleForm({ initial, onSave, onClose }: RuleFormProps) {
       drugCategories,
       triggerType,
       triggerValue,
+      triggerTolerance,
       priority,
       scriptTemplate,
       keyPoints,
@@ -147,6 +152,29 @@ function RuleForm({ initial, onSave, onClose }: RuleFormProps) {
               <span>90天</span>
             </div>
             <div className="mt-4">
+              <label className="label-base">触发容差（匹配口径）</label>
+              <p className="text-xs text-slate-400 mb-2">选择该规则匹配患者购药天数的允许偏差范围</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([0, 1, 3] as TriggerTolerance[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTriggerTolerance(t)}
+                    className={`py-2.5 rounded-lg text-sm font-medium border transition-all text-center ${
+                      triggerTolerance === t
+                        ? 'bg-medical-50 text-medical-700 border-medical-400 ring-1 ring-medical-200'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {TRIGGER_TOLERANCE_LABELS[t]}
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {t === 0 ? `仅第${triggerValue}天` : `第${Math.max(1, triggerValue - t)}~${triggerValue + t}天`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
               <label className="label-base">优先级</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['high', 'medium', 'low'] as Priority[]).map((p) => (
@@ -199,16 +227,111 @@ function RuleForm({ initial, onSave, onClose }: RuleFormProps) {
         </div>
       </div>
 
-      <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
-        <button className="btn-secondary" onClick={onClose}>取消</button>
+      <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
         <button
-          className="btn-primary"
-          onClick={handleSubmit}
-          disabled={!name || drugCategories.length === 0}
+          className="btn-secondary text-sm"
+          onClick={() => {
+            const result = simulateRule({ drugCategories, triggerType, triggerValue, triggerTolerance });
+            setSimResult(result);
+          }}
+          disabled={drugCategories.length === 0}
         >
-          保存规则
+          <Eye className="w-4 h-4" />
+          模拟预览
         </button>
+        <div className="flex items-center gap-3">
+          <button className="btn-secondary" onClick={onClose}>取消</button>
+          <button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={!name || drugCategories.length === 0}
+          >
+            保存规则
+          </button>
+        </div>
       </div>
+
+      {simResult && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSimResult(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-medical-500" />
+                模拟预览
+              </h3>
+              <button onClick={() => setSimResult(null)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-medical-50 border border-medical-100 text-center">
+                  <div className="text-3xl font-bold text-medical-700">{simResult.totalPatients}</div>
+                  <div className="text-sm text-slate-600 mt-1">预计命中患者</div>
+                </div>
+                <div className="p-4 rounded-xl bg-trust-50 border border-trust-100 text-center">
+                  <div className="text-3xl font-bold text-trust-700">{simResult.totalTasks}</div>
+                  <div className="text-sm text-slate-600 mt-1">预计生成任务</div>
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-medical-500" />
+                  各门店分布
+                </h4>
+                <div className="space-y-2">
+                  {simResult.storeBreakdown.map((sb) => (
+                    <div key={sb.storeId} className="flex items-center gap-3">
+                      <span className="text-sm text-slate-700 w-28 truncate">{sb.storeName}</span>
+                      <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-medical-400 to-medical-600 rounded-full transition-all"
+                          style={{ width: `${Math.max(5, (sb.count / Math.max(simResult.totalPatients, 1)) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 w-8 text-right">{sb.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-medical-500" />
+                  命中患者列表
+                </h4>
+                <div className="max-h-48 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-2 px-2 text-slate-600">姓名</th>
+                        <th className="text-left py-2 px-2 text-slate-600">药品类别</th>
+                        <th className="text-left py-2 px-2 text-slate-600">上次购药</th>
+                        <th className="text-right py-2 px-2 text-slate-600">天数差</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {simResult.patients.map((p) => (
+                        <tr key={p.id} className="border-b border-slate-100">
+                          <td className="py-1.5 px-2 font-medium text-slate-800">{p.name}</td>
+                          <td className="py-1.5 px-2"><span className="tag py-0 text-[10px]">{p.drugCategory}</span></td>
+                          <td className="py-1.5 px-2 text-slate-600">{p.lastPurchaseDate}</td>
+                          <td className="py-1.5 px-2 text-right font-mono font-bold text-medical-600">{p.daysDiff}天</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-5 p-3 rounded-xl bg-warn-50/60 border border-warn-100 text-sm text-warn-700">
+                ⚠️ 以上为模拟预览结果，不会影响当前待拨名单。保存规则后将重新生成今日任务。
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );
@@ -327,6 +450,13 @@ function Rules() {
                   <span className="text-slate-700 font-medium">
                     {TRIGGER_TYPES.find(t => t.value === rule.triggerType)?.label}
                     {' '}第{rule.triggerValue}天
+                  </span>
+                </div>
+                <div className="text-sm">
+                  <span className="text-slate-500">匹配口径：</span>
+                  <span className="text-slate-700 font-medium">{TRIGGER_TOLERANCE_LABELS[rule.triggerTolerance]}</span>
+                  <span className="text-xs text-slate-400 ml-1">
+                    {rule.triggerTolerance === 0 ? `仅第${rule.triggerValue}天` : `第${Math.max(1, rule.triggerValue - rule.triggerTolerance)}~${rule.triggerValue + rule.triggerTolerance}天`}
                   </span>
                 </div>
                 <div className="text-sm">

@@ -9,6 +9,7 @@ export const rules: Rule[] = [
     drugCategories: ['抗肿瘤靶向药', '抗病毒药物', '糖尿病用药'],
     triggerType: 'days_after_purchase',
     triggerValue: 25,
+    triggerTolerance: 1,
     priority: 'high',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？打扰您几分钟时间。看到您上次购买的[药品名称]，想了解一下您目前剩余药量还有多少？服药过程中有没有遇到什么问题？',
     keyPoints: [
@@ -27,6 +28,7 @@ export const rules: Rule[] = [
     drugCategories: ['冷链生物制剂'],
     triggerType: 'day_after_arrival',
     triggerValue: 1,
+    triggerTolerance: 0,
     priority: 'high',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？您昨天收到的[药品名称]属于冷链药品，请问您是否已经按要求放入冰箱冷藏（2-8℃）保存？药品包装有没有破损？',
     keyPoints: [
@@ -45,6 +47,7 @@ export const rules: Rule[] = [
     drugCategories: ['抗肿瘤靶向药', '自身免疫抑制剂', '冷链生物制剂', '罕见病特效药'],
     triggerType: 'days_after_first_purchase',
     triggerValue: 3,
+    triggerTolerance: 1,
     priority: 'high',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？您是第一次购买[药品名称]，想了解一下您开始服药后有没有什么不适反应？服药方式和剂量是否清楚？',
     keyPoints: [
@@ -63,6 +66,7 @@ export const rules: Rule[] = [
     drugCategories: ['心血管慢病药', '糖尿病用药'],
     triggerType: 'days_after_purchase',
     triggerValue: 50,
+    triggerTolerance: 3,
     priority: 'medium',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？您上次购买的[药品名称]快到疗程结束时间了，请问您是否需要提前安排复购？最近血压/血糖控制得怎么样？',
     keyPoints: [
@@ -81,6 +85,7 @@ export const rules: Rule[] = [
     drugCategories: ['自身免疫抑制剂'],
     triggerType: 'days_after_purchase',
     triggerValue: 10,
+    triggerTolerance: 1,
     priority: 'medium',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？您购买的[药品名称]已经服用10天了，想了解一下您对我们的服务和药品供应是否满意？有没有需要我们改进的地方？',
     keyPoints: [
@@ -99,6 +104,7 @@ export const rules: Rule[] = [
     drugCategories: ['罕见病特效药'],
     triggerType: 'days_after_purchase',
     triggerValue: 7,
+    triggerTolerance: 1,
     priority: 'high',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？您购买的[药品名称]（罕见病用药）想做一个每周关怀回访，请问您目前的用药情况怎么样？身体状态有什么变化吗？',
     keyPoints: [
@@ -117,6 +123,7 @@ export const rules: Rule[] = [
     drugCategories: ['抗肿瘤靶向药', '抗病毒药物'],
     triggerType: 'days_after_purchase',
     triggerValue: 15,
+    triggerTolerance: 1,
     priority: 'low',
     scriptTemplate: '您好，这里是XX药房客服中心。请问您是[患者姓名]吗？想跟您确认一下[药品名称]的用药情况，您有没有按时服药呢？如果因为副作用或经济原因想停药，请一定先跟医生或我们的药师沟通，千万不要自行停药。',
     keyPoints: [

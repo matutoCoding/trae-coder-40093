@@ -49,12 +49,21 @@ export type TriggerType =
 
 export type Priority = 'high' | 'medium' | 'low';
 
+export type TriggerTolerance = 0 | 1 | 3;
+
+export const TRIGGER_TOLERANCE_LABELS: Record<TriggerTolerance, string> = {
+  0: '精确当天',
+  1: '前后1天',
+  3: '前后3天',
+};
+
 export interface Rule {
   id: string;
   name: string;
   drugCategories: DrugCategory[];
   triggerType: TriggerType;
   triggerValue: number;
+  triggerTolerance: TriggerTolerance;
   priority: Priority;
   scriptTemplate: string;
   keyPoints: string[];
@@ -64,6 +73,17 @@ export interface Rule {
 }
 
 export type CallTaskStatus = 'pending' | 'calling' | 'completed' | 'failed';
+
+export interface MatchReason {
+  ruleId: string;
+  ruleName: string;
+  triggerType: TriggerType;
+  triggerValue: number;
+  triggerTolerance: TriggerTolerance;
+  drugCategory: DrugCategory;
+  patientLastPurchaseDate: string;
+  daysDiff: number;
+}
 
 export interface CallTask {
   id: string;
@@ -79,6 +99,7 @@ export interface CallTask {
   lastDrugCategory: DrugCategory;
   lastPurchaseDate: string;
   callCount: number;
+  matchReason: MatchReason;
 }
 
 export type CallResult =
